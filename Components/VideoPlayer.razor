@@ -1,0 +1,524 @@
+﻿@using Jptv.streaming.Models
+@using Jptv.streaming.Services
+@inject IScrapingService ScrapingService
+@inject VideoUrlResolverService UrlResolver
+@inject IBackButtonService BackButtonService
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<div class="video-player-fullscreen @(IsVisible ? "visible" : "hidden")">
+    @* Header avec bouton retour *@
+    <div class="video-header @(showControls ? "visible" : "hidden")" @onclick:stopPropagation="true">
+        <button class="back-button" @onclick="Close">
+            <span class="back-icon">←</span>
+            <span>Retour</span>
+        </button>
+        <div class="video-title">
+            <h2>@(CurrentVideo?.LocalizedTitle ?? CurrentVideo?.OriginalTitle ?? "")</h2>
+        </div>
+        <div class="header-spacer"></div>
+    </div>
+
+    @* Zone de lecture vidéo *@
+    <div class="video-content" @onclick="ToggleControls">
+        @if (IsLoading)
+        {
+            <div class="loading-container">
+                <div class="spinner-large"></div>
+                <p class="loading-text">@loadingMessage</p>
+                @if (!string.IsNullOrEmpty(loadingDetail))
+                {
+                    <p class="loading-detail">@loadingDetail</p>
+                }
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="error-container">
+                <div class="error-icon">⚠️</div>
+                <p class="error-text">@ErrorMessage</p>
+                <div class="error-actions">
+                    <button class="retry-button" @onclick="RetryLoad">Réessayer</button>
+                    <button class="close-error-button" @onclick="Close">Fermer</button>
+                </div>
+            </div>
+        }
+        else if (useWebView && !string.IsNullOrEmpty(VideoUrl))
+        {
+            @* Pour YouTube et autres qui nécessitent une WebView *@
+            <iframe src="@VideoUrl" 
+                    class="video-iframe"
+                    frameborder="0" 
+                    allow="autoplay; fullscreen; encrypted-media"
+                    allowfullscreen>
+            </iframe>
+        }
+        else if (!string.IsNullOrEmpty(VideoUrl))
+        {
+            @* Lecture vidéo native *@
+            <video @ref="videoElement"
+                   class="video-native"
+                   controls 
+                   autoplay
+                   playsinline
+                   @onended="OnVideoEnded">
+                <source src="@VideoUrl" type="@videoMimeType" />
+                Votre navigateur ne supporte pas la lecture vidéo.
+            </video>
+        }
+    </div>
+
+    @* Informations vidéo (footer) *@
+    @if (CurrentVideo != null && showControls)
+    {
+        <div class="video-footer @(showControls ? "visible" : "hidden")">
+            @if (!string.IsNullOrEmpty(CurrentVideo.RomanjiTitle) && CurrentVideo.RomanjiTitle != CurrentVideo.OriginalTitle)
+            {
+                <p class="video-romanji">@CurrentVideo.RomanjiTitle</p>
+            }
+            <p class="video-original">@CurrentVideo.OriginalTitle</p>
+            @if (streamInfo != null && !string.IsNullOrEmpty(streamInfo.Quality))
+            {
+                <p class="video-quality">Qualité: @streamInfo.Quality</p>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .video-player-fullscreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #000;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .video-player-fullscreen.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    .video-player-fullscreen.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .video-header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%);
+        z-index: 10;
+        transition: opacity 0.3s ease;
+    }
+
+    .video-header.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .back-button {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(255,255,255,0.1);
+        border: none;
+        color: white;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: background 0.2s;
+    }
+
+    .back-button:hover {
+        background: rgba(255,255,255,0.2);
+    }
+
+    .back-icon {
+        font-size: 1.2rem;
+    }
+
+    .video-title {
+        flex: 1;
+        text-align: center;
+        padding: 0 1rem;
+    }
+
+    .video-title h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .header-spacer {
+        width: 100px;
+    }
+
+    .video-content {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .video-native, .video-iframe {
+        width: 100%;
+        height: 100%;
+        max-height: 100vh;
+        object-fit: contain;
+        background: #000;
+    }
+
+    .video-iframe {
+        border: none;
+    }
+
+    .loading-container, .error-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .spinner-large {
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(255,255,255,0.2);
+        border-top-color: #e94560;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+        margin-top: 1.5rem;
+        font-size: 1.2rem;
+    }
+
+    .loading-detail {
+        margin-top: 0.5rem;
+        font-size: 0.9rem;
+        color: rgba(255,255,255,0.6);
+    }
+
+    .error-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .error-text {
+        font-size: 1.1rem;
+        margin-bottom: 1.5rem;
+        max-width: 300px;
+    }
+
+    .error-actions {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .retry-button, .close-error-button {
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        border: none;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .retry-button {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .close-error-button {
+        background: rgba(255,255,255,0.1);
+        color: white;
+        border: 1px solid rgba(255,255,255,0.3);
+    }
+
+    .retry-button:hover, .close-error-button:hover {
+        transform: scale(1.05);
+    }
+
+    .video-footer {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 1rem;
+        background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
+        color: white;
+        transition: opacity 0.3s ease;
+    }
+
+    .video-footer.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .video-romanji {
+        font-size: 0.9rem;
+        color: rgba(255,255,255,0.8);
+        margin: 0 0 0.25rem 0;
+    }
+
+    .video-original {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.6);
+        margin: 0;
+    }
+
+    .video-quality {
+        font-size: 0.75rem;
+        color: #4ecdc4;
+        margin: 0.5rem 0 0 0;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private VideoPost? CurrentVideo { get; set; }
+    private string? VideoUrl { get; set; }
+    private bool IsLoading { get; set; }
+    private string? ErrorMessage { get; set; }
+    private string loadingMessage = "Chargement...";
+    private string? loadingDetail;
+    private bool showControls = true;
+    private bool useWebView = false;
+    private string videoMimeType = "video/mp4";
+    private VideoStreamInfo? streamInfo;
+    private ElementReference videoElement;
+    private System.Timers.Timer? hideControlsTimer;
+
+    protected override void OnInitialized()
+    {
+        // Timer pour masquer les contrôles après 3 secondes
+        hideControlsTimer = new System.Timers.Timer(3000);
+        hideControlsTimer.Elapsed += (s, e) =>
+        {
+            showControls = false;
+            InvokeAsync(StateHasChanged);
+        };
+        hideControlsTimer.AutoReset = false;
+        
+        // S'abonner au bouton retour Android
+        BackButtonService.OnBackButtonPressed += HandleBackButton;
+    }
+
+    public async Task LoadVideoAsync(VideoPost video)
+    {
+        CurrentVideo = video;
+        VideoUrl = null;
+        ErrorMessage = null;
+        IsLoading = true;
+        useWebView = false;
+        streamInfo = null;
+        showControls = true;
+        
+        // Activer le mode plein écran (cache la barre de statut)
+        BackButtonService.EnterFullScreen();
+        
+        StateHasChanged();
+
+        try
+        {
+            // Étape 1: Extraire l'URL de l'iframe depuis la page
+            loadingMessage = "Récupération de la vidéo...";
+            loadingDetail = "Analyse de la page";
+            StateHasChanged();
+
+            string? iframeUrl;
+            
+            if (!string.IsNullOrEmpty(video.VideoUrl))
+            {
+                iframeUrl = video.VideoUrl;
+            }
+            else
+            {
+                iframeUrl = await ScrapingService.ExtractVideoUrlAsync(video.PageUrl);
+            }
+
+            if (string.IsNullOrEmpty(iframeUrl))
+            {
+                ErrorMessage = "Impossible de trouver la vidéo sur cette page.";
+                return;
+            }
+
+            Console.WriteLine($"URL iframe trouvée: {iframeUrl}");
+
+            // Étape 2: Résoudre l'URL en URL de streaming directe
+            loadingMessage = "Résolution du flux vidéo...";
+            loadingDetail = $"Source: {new Uri(iframeUrl).Host}";
+            StateHasChanged();
+
+            streamInfo = await UrlResolver.ResolveAsync(iframeUrl);
+
+            if (streamInfo == null || string.IsNullOrEmpty(streamInfo.DirectUrl))
+            {
+                ErrorMessage = "Impossible de résoudre l'URL de la vidéo.";
+                return;
+            }
+
+            // Configurer le lecteur selon le type de vidéo
+            VideoUrl = streamInfo.DirectUrl;
+            useWebView = streamInfo.RequiresWebView;
+
+            if (streamInfo.IsHls)
+            {
+                videoMimeType = "application/x-mpegURL";
+            }
+            else if (VideoUrl.Contains(".mp4"))
+            {
+                videoMimeType = "video/mp4";
+            }
+            else if (VideoUrl.Contains(".webm"))
+            {
+                videoMimeType = "video/webm";
+            }
+
+            Console.WriteLine($"URL vidéo résolue: {VideoUrl}");
+            Console.WriteLine($"UseWebView: {useWebView}, MimeType: {videoMimeType}");
+
+            // Démarrer le timer pour masquer les contrôles
+            ResetHideControlsTimer();
+            
+            // Forcer l'autoplay après le rendu
+            if (!useWebView)
+            {
+                _ = TryAutoPlayAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur chargement vidéo: {ex.Message}");
+            ErrorMessage = $"Erreur: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleControls()
+    {
+        showControls = !showControls;
+        if (showControls)
+        {
+            ResetHideControlsTimer();
+        }
+        StateHasChanged();
+    }
+
+    private void ResetHideControlsTimer()
+    {
+        hideControlsTimer?.Stop();
+        hideControlsTimer?.Start();
+    }
+    
+    private async Task TryAutoPlayAsync()
+    {
+        // Attendre que le DOM soit mis à jour
+        await Task.Delay(100);
+        StateHasChanged();
+        await Task.Delay(100);
+        
+        try
+        {
+            // Utiliser JavaScript pour démarrer la lecture
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    var video = document.querySelector('.video-native');
+                    if (video) {
+                        video.muted = false;
+                        video.play().catch(function(e) {
+                            console.log('Autoplay failed, trying muted:', e);
+                            video.muted = true;
+                            video.play().then(function() {
+                                setTimeout(function() { video.muted = false; }, 500);
+                            });
+                        });
+                    }
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Autoplay error: {ex.Message}");
+        }
+    }
+
+    private async Task RetryLoad()
+    {
+        if (CurrentVideo != null)
+        {
+            await LoadVideoAsync(CurrentVideo);
+        }
+    }
+
+    private void OnVideoEnded()
+    {
+        showControls = true;
+        StateHasChanged();
+    }
+
+    private async Task Close()
+    {
+        hideControlsTimer?.Stop();
+        VideoUrl = null;
+        CurrentVideo = null;
+        streamInfo = null;
+        
+        // Sortir du mode plein écran
+        BackButtonService.ExitFullScreen();
+        
+        await OnClose.InvokeAsync();
+    }
+    
+    private void HandleBackButton()
+    {
+        // Si le lecteur est visible, fermer le lecteur au lieu de quitter l'app
+        if (IsVisible)
+        {
+            BackButtonService.IsHandled = true;
+            InvokeAsync(async () => await Close());
+        }
+    }
+
+    public new void Dispose()
+    {
+        hideControlsTimer?.Stop();
+        hideControlsTimer?.Dispose();
+        
+        // Se désabonner du bouton retour
+        BackButtonService.OnBackButtonPressed -= HandleBackButton;
+    }
+}

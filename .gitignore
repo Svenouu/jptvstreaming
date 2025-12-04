@@ -1,0 +1,92 @@
+# .NET
+bin/
+obj/
+*.user
+*.userosscache
+*.suo
+*.cache
+*.log
+
+# Visual Studio
+.vs/
+*.vsidx
+*.sln.docstates
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# MAUI / Xamarin
+*.apk
+*.aab
+*.ipa
+*.app
+*.dSYM/
+*.pkg
+
+# Android
+*.keystore
+!*.keystore.example
+
+# macOS
+.DS_Store
+*.dmg
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+# Publish output
+publish/
+PublishOutput/
+
+# User-specific files
+*.rsuser
+*.pubxml
+!**/PublishProfiles/*.pubxml
+
+# Secrets
+secrets.json
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json.example
+
+# IDE generated files
+*.generated.cs
+*.ide.g.cs
+
+# Temporary files
+*.tmp
+*.temp
+~$*

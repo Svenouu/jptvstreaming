@@ -1,0 +1,250 @@
+﻿@page "/"
+@using Jptv.streaming.Models
+@using Jptv.streaming.Services
+@inject IScrapingService ScrapingService
+@inject ITranslationService TranslationService
+@inject NavigationManager Navigation
+
+<div class="streaming-app">
+    <header class="app-header">
+        <div class="header-content">
+            <h1>JPTV Streaming</h1>
+            <p class="source-url">Source: @ScrapingService.BaseUrl</p>
+        </div>
+        <button class="settings-button" @onclick="OpenSettings" title="Paramètres">
+            ⚙️
+        </button>
+    </header>
+
+    <main class="video-grid-container">
+        @if (videos.Count == 0 && isLoading)
+        {
+            <div class="initial-loading">
+                <div class="spinner"></div>
+                <p>Chargement des vidéos...</p>
+                <p class="loading-hint">Connexion au serveur...</p>
+            </div>
+        }
+        else if (hasError && videos.Count == 0)
+        {
+            <div class="error-container">
+                <div class="error-icon">⚠️</div>
+                <p class="error-message">@errorMessage</p>
+                <button class="retry-button" @onclick="RetryLoading">
+                    🔄 Réessayer
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="video-grid">
+                @foreach (var video in videos)
+                {
+                    <VideoCard Video="@video" OnVideoSelected="OnVideoSelected" />
+                }
+            </div>
+
+            @if (hasMoreVideos)
+            {
+                <div class="load-more-trigger" @ref="loadMoreTrigger">
+                    @if (isLoading)
+                    {
+                        <div class="loading-more">
+                            <div class="spinner"></div>
+                            <p>Chargement...</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <button class="load-more-button" @onclick="() => LoadMoreVideos()">
+                            Charger plus de vidéos
+                        </button>
+                    }
+                </div>
+            }
+        }
+    </main>
+
+    <VideoPlayer @ref="videoPlayer" 
+                 IsVisible="@isPlayerVisible" 
+                 OnClose="ClosePlayer" />
+</div>
+
+@code {
+private List<VideoPost> videos = new();
+private int currentPage = 1;
+private const int PageSize = 20;
+private bool isLoading = false;
+private bool hasMoreVideos = true;
+private bool isPlayerVisible = false;
+private bool hasError = false;
+private string? errorMessage;
+private VideoPlayer? videoPlayer;
+private ElementReference loadMoreTrigger;
+
+protected override async Task OnInitializedAsync()
+{
+    // Charger les vidéos avec un timeout pour éviter le blocage sur Android
+    await LoadMoreVideosWithTimeout();
+}
+
+private async Task LoadMoreVideosWithTimeout()
+{
+    try
+    {
+        // Timeout de 30 secondes pour le chargement initial
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        await LoadMoreVideos(cts.Token);
+    }
+    catch (OperationCanceledException)
+    {
+        Console.WriteLine("Chargement annulé (timeout)");
+        hasError = true;
+        errorMessage = "Le chargement a pris trop de temps. Vérifiez votre connexion.";
+        isLoading = false;
+        StateHasChanged();
+    }
+}
+
+private async Task LoadMoreVideos(CancellationToken cancellationToken = default)
+{
+    if (isLoading) return;
+
+    isLoading = true;
+    hasError = false;
+    errorMessage = null;
+    StateHasChanged();
+
+    try
+    {
+        Console.WriteLine($"Chargement de la page {currentPage}...");
+            
+        var newVideos = await ScrapingService.GetVideosAsync(currentPage, PageSize, cancellationToken);
+        var videosList = newVideos.ToList();
+
+        Console.WriteLine($"Reçu {videosList.Count} vidéos");
+
+        if (videosList.Count < PageSize)
+        {
+            hasMoreVideos = false;
+        }
+
+        if (videosList.Count > 0)
+        {
+            // Traduire les titres japonais (avec timeout court sur mobile)
+            await TranslateVideosAsync(videosList, cancellationToken);
+            videos.AddRange(videosList);
+            currentPage++;
+        }
+        else if (videos.Count == 0)
+        {
+            // Aucune vidéo et c'est la première page
+            hasError = true;
+            errorMessage = "Aucune vidéo trouvée. Le serveur est peut-être indisponible.";
+        }
+    }
+    catch (OperationCanceledException)
+    {
+        throw; // Remonter pour être géré par LoadMoreVideosWithTimeout
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Erreur lors du chargement: {ex.Message}");
+        hasError = true;
+        errorMessage = $"Erreur: {ex.Message}";
+    }
+    finally
+    {
+        isLoading = false;
+        StateHasChanged();
+    }
+}
+
+private async Task RetryLoading()
+{
+    hasError = false;
+    errorMessage = null;
+    await LoadMoreVideosWithTimeout();
+}
+
+private async Task TranslateVideosAsync(List<VideoPost> videosList, CancellationToken cancellationToken = default)
+{
+    // Timeout court pour la traduction (5 secondes sur mobile)
+    using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+    cts.CancelAfter(TimeSpan.FromSeconds(5));
+        
+    try
+    {
+        // Limiter le nombre de traductions parallèles pour ne pas surcharger l'API
+        var semaphore = new SemaphoreSlim(3); // Max 3 traductions simultanées
+            
+            var translationTasks = videosList.Select(async video =>
+            {
+                await semaphore.WaitAsync(cts.Token);
+                try
+                {
+                    // Traduire le titre japonais en romanji et dans la langue locale
+                    var romanjiTask = TranslationService.TranslateToRomanjiAsync(video.OriginalTitle, cts.Token);
+                    var localizedTask = TranslationService.TranslateToLocalLanguageAsync(video.OriginalTitle, cts.Token);
+
+                    await Task.WhenAll(romanjiTask, localizedTask);
+
+                    video.RomanjiTitle = await romanjiTask;
+                    video.LocalizedTitle = await localizedTask;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Erreur de traduction pour {video.Id}: {ex.Message}");
+                    // En cas d'erreur, utiliser le titre original
+                    if (string.IsNullOrEmpty(video.RomanjiTitle))
+                        video.RomanjiTitle = video.OriginalTitle;
+                    if (string.IsNullOrEmpty(video.LocalizedTitle))
+                        video.LocalizedTitle = video.OriginalTitle;
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+
+            await Task.WhenAll(translationTasks);
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Traduction annulée (timeout)");
+        }
+        finally
+        {
+            // S'assurer que tous les titres ont une valeur
+            foreach (var video in videosList)
+            {
+                if (string.IsNullOrEmpty(video.RomanjiTitle))
+                    video.RomanjiTitle = video.OriginalTitle;
+                if (string.IsNullOrEmpty(video.LocalizedTitle))
+                    video.LocalizedTitle = video.OriginalTitle;
+            }
+        }
+    }
+
+    private async Task OnVideoSelected(VideoPost video)
+    {
+        isPlayerVisible = true;
+        StateHasChanged();
+
+        if (videoPlayer != null)
+        {
+            await videoPlayer.LoadVideoAsync(video);
+        }
+    }
+
+    private void ClosePlayer()
+    {
+        isPlayerVisible = false;
+        StateHasChanged();
+    }
+
+    private void OpenSettings()
+    {
+        Navigation.NavigateTo("/settings");
+    }
+}

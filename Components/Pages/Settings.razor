@@ -1,0 +1,349 @@
+﻿@page "/settings"
+@using Jptv.streaming.Services
+@inject FlareSolverrService FlareSolverr
+@inject NavigationManager Navigation
+
+<div class="settings-page">
+    <header class="settings-header">
+        <button class="back-button" @onclick="GoBack">
+            <span>←</span> Retour
+        </button>
+        <h1>Paramètres</h1>
+    </header>
+
+    <main class="settings-content">
+        <section class="settings-section">
+            <h2>🔧 FlareSolverr</h2>
+            <p class="section-description">
+                FlareSolverr permet de contourner la protection Cloudflare.
+                <a href="https://github.com/FlareSolverr/FlareSolverr" target="_blank">En savoir plus</a>
+            </p>
+
+            <div class="setting-item">
+                <label for="flaresolverr-url">URL du serveur FlareSolverr</label>
+                <input type="text" 
+                       id="flaresolverr-url" 
+                       @bind="flareSolverrUrl" 
+                       placeholder="http://4.211.70.50:8191/v1" />
+                <small>Exemple: http://192.168.1.100:8191/v1</small>
+            </div>
+
+            <div class="setting-actions">
+                <button class="btn-primary" @onclick="TestConnection" disabled="@isTesting">
+                    @if (isTesting)
+                    {
+                        <span class="spinner-small"></span>
+                        <span>Test en cours...</span>
+                    }
+                    else
+                    {
+                        <span>Tester la connexion</span>
+                    }
+                </button>
+                
+                <button class="btn-secondary" @onclick="SaveSettings" disabled="@isTesting">
+                    Enregistrer
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(testResult))
+            {
+                <div class="test-result @(testSuccess ? "success" : "error")">
+                    @testResult
+                </div>
+            }
+        </section>
+
+        <section class="settings-section">
+            <h2>📋 Instructions d'installation</h2>
+            <div class="instructions">
+                <h3>Docker (recommandé)</h3>
+                <code>docker run -d --name flaresolverr -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest</code>
+
+                <h3>Configuration réseau</h3>
+                <ul>
+                    <li>Si FlareSolverr est sur votre PC, utilisez l'IP locale (ex: 192.168.1.x)</li>
+                    <li>Le port par défaut est 8191</li>
+                    <li>Assurez-vous que le pare-feu autorise le port</li>
+                </ul>
+
+                <h3>Vérification</h3>
+                <p>Ouvrez <code>http://[IP]:8191</code> dans un navigateur. Vous devriez voir une réponse JSON.</p>
+            </div>
+        </section>
+
+        <section class="settings-section">
+            <h2>ℹ️ État actuel</h2>
+            <div class="status-info">
+                <p><strong>FlareSolverr:</strong> 
+                    @if (FlareSolverr.IsAvailable)
+                    {
+                        <span class="status-ok">✓ Connecté</span>
+                    }
+                    else
+                    {
+                        <span class="status-error">✗ Non disponible</span>
+                    }
+                </p>
+                @if (!string.IsNullOrEmpty(FlareSolverr.LastError))
+                {
+                    <p class="error-message">@FlareSolverr.LastError</p>
+                }
+            </div>
+        </section>
+    </main>
+</div>
+
+<style>
+    .settings-page {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: white;
+    }
+
+    .settings-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: rgba(0,0,0,0.3);
+    }
+
+    .back-button {
+        background: transparent;
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    .settings-content {
+        padding: 1rem;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .settings-section {
+        background: rgba(255,255,255,0.1);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .settings-section h2 {
+        margin-top: 0;
+        font-size: 1.2rem;
+    }
+
+    .section-description {
+        color: rgba(255,255,255,0.7);
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+
+    .section-description a {
+        color: #4ecdc4;
+    }
+
+    .setting-item {
+        margin-bottom: 1rem;
+    }
+
+    .setting-item label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .setting-item input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 8px;
+        background: rgba(0,0,0,0.3);
+        color: white;
+        font-size: 1rem;
+    }
+
+    .setting-item small {
+        display: block;
+        margin-top: 0.25rem;
+        color: rgba(255,255,255,0.5);
+        font-size: 0.8rem;
+    }
+
+    .setting-actions {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .btn-primary, .btn-secondary {
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-secondary {
+        background: rgba(255,255,255,0.2);
+        color: white;
+    }
+
+    .btn-primary:disabled, .btn-secondary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .test-result {
+        margin-top: 1rem;
+        padding: 0.75rem;
+        border-radius: 8px;
+    }
+
+    .test-result.success {
+        background: rgba(76, 175, 80, 0.3);
+        border: 1px solid #4caf50;
+    }
+
+    .test-result.error {
+        background: rgba(244, 67, 54, 0.3);
+        border: 1px solid #f44336;
+    }
+
+    .instructions {
+        font-size: 0.9rem;
+    }
+
+    .instructions h3 {
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .instructions code {
+        display: block;
+        background: rgba(0,0,0,0.5);
+        padding: 0.75rem;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+
+    .instructions ul {
+        padding-left: 1.5rem;
+        color: rgba(255,255,255,0.8);
+    }
+
+    .status-info p {
+        margin: 0.5rem 0;
+    }
+
+    .status-ok {
+        color: #4caf50;
+    }
+
+    .status-error {
+        color: #f44336;
+    }
+
+    .error-message {
+        color: rgba(255,255,255,0.6);
+        font-size: 0.85rem;
+        font-style: italic;
+    }
+
+    .spinner-small {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+
+@code {
+    private string flareSolverrUrl = "http://4.211.70.50:8191/v1";
+    private bool isTesting = false;
+    private string? testResult;
+    private bool testSuccess = false;
+
+    protected override void OnInitialized()
+    {
+        flareSolverrUrl = FlareSolverr.FlareSolverrUrl;
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    private async Task TestConnection()
+    {
+        isTesting = true;
+        testResult = null;
+        StateHasChanged();
+
+        try
+        {
+            var success = await FlareSolverr.ConfigureAsync(flareSolverrUrl);
+            
+            if (success)
+            {
+                testSuccess = true;
+                testResult = "✓ Connexion réussie ! FlareSolverr est opérationnel.";
+            }
+            else
+            {
+                testSuccess = false;
+                testResult = $"✗ Échec de la connexion: {FlareSolverr.LastError}";
+            }
+        }
+        catch (Exception ex)
+        {
+            testSuccess = false;
+            testResult = $"✗ Erreur: {ex.Message}";
+        }
+        finally
+        {
+            isTesting = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        // Sauvegarder l'URL
+        FlareSolverr.FlareSolverrUrl = flareSolverrUrl;
+        
+        // Tester et configurer
+        await FlareSolverr.ConfigureAsync(flareSolverrUrl);
+        
+        // Sauvegarder dans les préférences (persistance)
+        Preferences.Set("FlareSolverrUrl", flareSolverrUrl);
+        
+        testResult = "Paramètres enregistrés !";
+        testSuccess = true;
+        StateHasChanged();
+        
+        // Retourner à la page principale après un délai
+        await Task.Delay(1500);
+        Navigation.NavigateTo("/", replace: true);
+    }
+}

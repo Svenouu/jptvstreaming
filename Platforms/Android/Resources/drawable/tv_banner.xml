@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background gradient -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#1a1a2e"
+                android:endColor="#16213e"
+                android:angle="135"/>
+            <corners android:radius="8dp"/>
+        </shape>
+    </item>
+    
+    <!-- Border accent -->
+    <item android:left="4dp" android:top="4dp" android:right="4dp" android:bottom="4dp">
+        <shape android:shape="rectangle">
+            <stroke android:width="2dp" android:color="#e94560"/>
+            <corners android:radius="6dp"/>
+        </shape>
+    </item>
+    
+    <!-- Text overlay would be added via app icon -->
+</layer-list>

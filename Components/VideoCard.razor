@@ -1,0 +1,41 @@
+@using Jptv.streaming.Models
+
+<div class="video-card" @onclick="OnCardClick">
+    <div class="video-thumbnail">
+        <img src="@Video.ThumbnailUrl" alt="@Video.LocalizedTitle" loading="lazy" />
+        @if (Video.Duration.HasValue)
+        {
+            <span class="video-duration">@FormatDuration(Video.Duration.Value)</span>
+        }
+    </div>
+    <div class="video-info">
+        <h3 class="video-title-romanji">@Video.RomanjiTitle</h3>
+        <p class="video-title-localized">@Video.LocalizedTitle</p>
+        @if (Video.PublishedDate.HasValue)
+        {
+            <span class="video-date">@Video.PublishedDate.Value.ToString("dd/MM/yyyy HH:mm")</span>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public required VideoPost Video { get; set; }
+
+    [Parameter]
+    public EventCallback<VideoPost> OnVideoSelected { get; set; }
+
+    private async Task OnCardClick()
+    {
+        await OnVideoSelected.InvokeAsync(Video);
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+        {
+            return $"{(int)duration.TotalHours}:{duration.Minutes:D2}:{duration.Seconds:D2}";
+        }
+        return $"{duration.Minutes}:{duration.Seconds:D2}";
+    }
+}

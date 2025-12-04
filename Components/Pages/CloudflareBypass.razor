@@ -1,0 +1,130 @@
+@page "/cloudflare-bypass"
+@using Jptv.streaming.Services
+@inject CloudflareCookieService CookieService
+@inject NavigationManager Navigation
+
+<div class="cloudflare-bypass-container">
+    <div class="bypass-header">
+        <h2>Vérification de sécurité</h2>
+        <p>Veuillez patienter pendant la vérification...</p>
+    </div>
+    
+    <div class="webview-container">
+        @if (!isCompleted)
+        {
+            <div class="loading-overlay">
+                <div class="spinner"></div>
+                <p>@statusMessage</p>
+            </div>
+        }
+    </div>
+    
+    @if (showManualButton)
+    {
+        <div class="manual-actions">
+            <p>Si la vérification prend trop de temps, appuyez sur le bouton ci-dessous :</p>
+            <button class="retry-button" @onclick="OpenInWebView">Ouvrir dans le navigateur</button>
+            <button class="skip-button" @onclick="SkipVerification">Passer (mode hors-ligne)</button>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isCompleted = false;
+    private bool showManualButton = false;
+    private string statusMessage = "Connexion au serveur...";
+    private System.Timers.Timer? timeoutTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Afficher le bouton manuel après 10 secondes
+        timeoutTimer = new System.Timers.Timer(10000);
+        timeoutTimer.Elapsed += (s, e) =>
+        {
+            showManualButton = true;
+            InvokeAsync(StateHasChanged);
+        };
+        timeoutTimer.AutoReset = false;
+        timeoutTimer.Start();
+
+        // Tenter d'obtenir les cookies automatiquement
+        await AttemptAutomaticBypass();
+    }
+
+    private async Task AttemptAutomaticBypass()
+    {
+        statusMessage = "Tentative de connexion...";
+        StateHasChanged();
+
+        try
+        {
+            // Sur les plateformes mobiles, on va ouvrir une WebView native
+            // qui peut passer le challenge Cloudflare
+            
+            // Pour l'instant, simuler un délai et passer en mode dégradé
+            await Task.Delay(2000);
+            
+            statusMessage = "Vérification en cours...";
+            StateHasChanged();
+            
+            await Task.Delay(3000);
+
+            // Si on arrive ici sans cookie, proposer des alternatives
+            if (!CookieService.HasValidCookie)
+            {
+                showManualButton = true;
+                statusMessage = "Vérification manuelle requise";
+                StateHasChanged();
+            }
+            else
+            {
+                CompleteBypass();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur bypass: {ex.Message}");
+            showManualButton = true;
+            statusMessage = "Erreur de connexion";
+            StateHasChanged();
+        }
+    }
+
+    private async void OpenInWebView()
+    {
+        try
+        {
+            // Ouvrir le site dans le navigateur natif
+            await Launcher.OpenAsync(new Uri("https://9tsu.cc/douga"));
+            
+            statusMessage = "Après avoir passé la vérification, revenez dans l'application";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erreur ouverture navigateur: {ex.Message}");
+        }
+    }
+
+    private void SkipVerification()
+    {
+        // Passer en mode dégradé (utiliser le MockScrapingService)
+        CompleteBypass();
+    }
+
+    private void CompleteBypass()
+    {
+        isCompleted = true;
+        timeoutTimer?.Stop();
+        timeoutTimer?.Dispose();
+        
+        // Retourner à la page principale
+        Navigation.NavigateTo("/", replace: true);
+    }
+
+    public void Dispose()
+    {
+        timeoutTimer?.Stop();
+        timeoutTimer?.Dispose();
+    }
+}
