@@ -1,28 +1,28 @@
-# JPTV Streaming
+﻿# JPTV Streaming
 
-Application de streaming vid�o japonaise multi-plateforme d�velopp�e avec .NET MAUI Blazor.
+Application de streaming vidéo japonaise multi-plateforme développée avec .NET MAUI Blazor.
 
 ![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)
 ![MAUI](https://img.shields.io/badge/MAUI-Blazor-purple)
 ![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Windows%20%7C%20macOS-blue)
 
-## ?? Fonctionnalit�s
+## Fonctionnalités
 
-- ?? Streaming de vid�os japonaises
-- ?? Navigation par liste avec chargement infini
-- ?? Traduction automatique des titres japonais (romanji + langue locale)
-- ?? Lecteur vid�o plein �cran avec contr�les tactiles
-- ?? Configuration FlareSolverr pour bypass Cloudflare
-- ?? Support Android (mobile et TV)
+- Streaming de vidéos japonaises
+- Navigation par liste avec chargement infini
+- Traduction automatique des titres japonais (romanji + langue locale)
+- Lecteur vidéo plein écran avec contrôles tactiles
+- Configuration FlareSolverr pour bypass Cloudflare
+- Support Android (mobile et TV)
 
-## ??? Pr�requis
+## Prérequis
 
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
 - [Visual Studio 2022](https://visualstudio.microsoft.com/) avec les workloads MAUI
 - Android SDK (API 28+)
 - [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) pour le scraping
 
-## ?? Installation
+## Installation
 
 ### Cloner le repository
 
@@ -31,13 +31,13 @@ git clone https://github.com/Svenouu/jptvstreaming.git
 cd jptvstreaming
 ```
 
-### Restaurer les d�pendances
+### Restaurer les dépendances
 
 ```bash
 dotnet restore
 ```
 
-### Lancer en d�veloppement
+### Lancer en développement
 
 ```bash
 # Android
@@ -47,84 +47,75 @@ dotnet build -f net9.0-android
 dotnet build -f net9.0-windows10.0.19041.0
 ```
 
-## ?? Publication
+## Publication
 
-### APK Android (non sign�)
+### APK Android (non signé)
 
 ```bash
 dotnet publish -f net9.0-android -c Release
 ```
 
-L'APK sera g�n�r� dans `bin/Release/net9.0-android/publish/`
+L'APK sera généré dans `bin/Release/net9.0-android/publish/`
 
-### APK Android (sign�)
+### APK Android (signé)
 
-Voir le guide d�taill� : [PUBLISH-GUIDE.md](PUBLISH-GUIDE.md)
+Voir le guide détaillé : [PUBLISH-GUIDE.md](PUBLISH-GUIDE.md)
 
-## ?? Configuration
+## Configuration
 
 ### FlareSolverr
 
-L'application n�cessite FlareSolverr pour contourner la protection Cloudflare.
+L'application nécessite FlareSolverr pour contourner la protection Cloudflare.
 
 ```bash
 # Lancer FlareSolverr avec Docker
 docker run -d --name flaresolverr -p 8191:8191 ghcr.io/flaresolverr/flaresolverr:latest
 ```
 
-Configurez l'URL dans les param�tres de l'application :
-- **R�seau local** : `http://VOTRE_IP:8191/v1`
-- **�mulateur Android** : `http://10.0.2.2:8191/v1`
+Configurez l'URL dans les paramètres de l'application :
+- **Réseau local** : `http://VOTRE_IP:8191/v1`
+- **Émulateur Android** : `http://10.0.2.2:8191/v1`
 
-## ?? Structure du projet
+## Structure du projet
 
 ```
 jptvstreaming/
-??? Components/
-?   ??? Layout/           # Layouts Blazor
-?   ??? Pages/            # Pages (Home, Settings)
-?   ??? VideoCard.razor   # Carte vid�o
-?   ??? VideoPlayer.razor # Lecteur vid�o plein �cran
-??? Models/
-?   ??? VideoPost.cs      # Mod�le de donn�es vid�o
-??? Platforms/
-?   ??? Android/          # Code sp�cifique Android
-??? Services/
-?   ??? ScrapingService   # Service de scraping
-?   ??? TranslationService# Traduction des titres
-?   ??? BackButtonService # Gestion bouton retour Android
-??? wwwroot/              # Assets statiques
+├── Components/
+│   ├── Layout/           # Layouts Blazor
+│   ├── Pages/            # Pages (Home, Settings)
+│   ├── VideoCard.razor   # Carte vidéo
+│   └── VideoPlayer.razor # Lecteur vidéo plein écran
+├── Models/
+│   └── VideoPost.cs      # Modèle de données vidéo
+├── Platforms/
+│   └── Android/          # Code spécifique Android
+├── Services/
+│   ├── ScrapingService   # Service de scraping
+│   ├── TranslationService# Traduction des titres
+│   └── BackButtonService # Gestion bouton retour Android
+└── wwwroot/              # Assets statiques
 ```
 
-## ?? Utilisation
+## Utilisation
 
 1. **Lancer l'application** sur votre appareil Android
-2. **Configurer FlareSolverr** dans les param�tres (??)
-3. **Parcourir** la liste des vid�os
-4. **Appuyer** sur une vid�o pour la lire
-5. **Bouton retour** pour revenir � la liste
+2. **Configurer FlareSolverr** dans les paramètres
+3. **Parcourir** la liste des vidéos
+4. **Appuyer** sur une vidéo pour la lire
+5. **Bouton retour** pour revenir à la liste
 
-## ?? Plateformes support�es
+## Plateformes supportées
 
 | Plateforme | Statut | Version minimale |
 |------------|--------|------------------|
-| Android    | ?     | Android 9 (API 28) |
-| Android TV | ?     | Android TV 9 |
-| Windows    | ??     | Windows 10 19041 |
-| iOS        | ??     | iOS 15+ |
-| macOS      | ??     | macOS 13+ |
+| Android    | Testé | Android 9 (API 28) |
+| Android TV | Testé | Android TV 9 |
+| Windows    | Compilable | Windows 10 19041 |
+| iOS        | Compilable | iOS 15+ |
+| macOS      | Compilable | macOS 13+ |
 
-? Test� | ?? Compilable (non test�)
+## Problèmes connus
 
-## ?? Probl�mes connus
+- Le lecteur vidéo utilise une WebView, certains formats peuvent ne pas être supportés
+- FlareSolverr est requis pour accéder au contenu
 
-- Le lecteur vid�o utilise une WebView, certains formats peuvent ne pas �tre support�s
-- FlareSolverr est requis pour acc�der au contenu
-
-## ?? Licence
-
-Ce projet est � usage personnel uniquement.
-
-## ?? Contribution
-
-Les contributions sont les bienvenues ! N'h�sitez pas � ouvrir une issue ou une pull request.
